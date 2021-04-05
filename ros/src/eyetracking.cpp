@@ -8,14 +8,14 @@
 #include <cstdio>
 #include <cassert>
 #include <cstring>
+#include <fstream>
 
-class Gazing(int argc, char **argv){
+ros::Publisher eyetracking_pub;
+
+class Gazing{
     public:
-    ros::init(argc, argv, "talker");
-    ros::NodeHandle n;
-
-    ros::Publisher eyetracking_pub_new = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
-    ros::Subscriber sub_new = n.subscribe("input", 1000, &Gazing::chatterCallback);
+//    ros::Publisher eyetracking_pub_new = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
+//    ros::Subscriber sub_new = n.subscribe("input", 1000, &Gazing::chatterCallback);
 
     void chatterCallback(const std_msgs::String::ConstPtr& msg)
     {
@@ -23,7 +23,25 @@ class Gazing(int argc, char **argv){
     }
 };
 
+void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) {
+    if (gaze_point->validity == TOBII_VALIDITY_VALID)
+        printf("Gaze point: %f, %f\n",
+               gaze_point->position_xy[0],
+               gaze_point->position_xy[1]);
+    std::ofstream  fout("eye_data.txt", std::ios::out|std::ios::app);
+    //fout.open(");
+    fout<<gaze_point->position_xy[0]<<","<<gaze_point->position_xy[1]<<"\n";
 
+
+
+
+
+
+    geometry_msgs::Point eye_position;
+    eye_position.x = gaze_point->position_xy[0];
+    eye_position.y = gaze_point->position_xy[1];
+    eyetracking_pub.publish(eye_position);
+}
 
 static void url_receiver(char const *url, void *user_data) {
     char *buffer = (char *) user_data;
@@ -43,7 +61,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "talker");
     ros::NodeHandle n;
 //    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("eye_tracking_position", 1000);
-    ros::Publisher eyetracking_pub = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
+   eyetracking_pub = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
     ros::Subscriber sub = n.subscribe("input", 1000, chatterCallback);
 
     ros::Rate loop_rate(10);
@@ -73,14 +91,7 @@ int main(int argc, char **argv)
 
         error = tobii_device_process_callbacks(device);
         assert(error == TOBII_ERROR_NO_ERROR);
-/*
-        std_msgs::String msg;
-        std::stringstream ss;
-        ss << "hello world " << count;
-        msg.data = ss.str();
-        chatter_pub.publish(msg);
-        ++count;
-*/
+
         ros::spinOnce();
         loop_rate.sleep();
     }

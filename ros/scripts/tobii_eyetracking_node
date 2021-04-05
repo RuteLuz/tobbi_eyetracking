@@ -1,6 +1,0 @@
-#!/usr/bin/env python
-
-import tobii_eyetracking_ros.tobii_eyetracking_node
-
-if __name__ == '__main__':
- tobii_eyetracking_ros.tobii_eyetracking_node.main()
