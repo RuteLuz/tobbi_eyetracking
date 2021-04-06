@@ -10,37 +10,25 @@
 #include <cstring>
 #include <fstream>
 
+using namespace std;
+using std::cout;
+using std::cin;
+using std::endl;
+using std::string;
+
 ros::Publisher eyetracking_pub;
-
-class Gazing{
-    public:
-//    ros::Publisher eyetracking_pub_new = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
-//    ros::Subscriber sub_new = n.subscribe("input", 1000, &Gazing::chatterCallback);
-
-    void chatterCallback(const std_msgs::String::ConstPtr& msg)
-    {
-        ROS_INFO("I heard: %s", msg->data.c_str());
-    }
-};
+const char *file_name;
 
 void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) {
-    if (gaze_point->validity == TOBII_VALIDITY_VALID)
-        printf("Gaze point: %f, %f\n",
-               gaze_point->position_xy[0],
-               gaze_point->position_xy[1]);
-    std::ofstream  fout("eye_data.txt", std::ios::out|std::ios::app);
-    //fout.open(");
-    fout<<gaze_point->position_xy[0]<<","<<gaze_point->position_xy[1]<<"\n";
+    if (gaze_point->validity == TOBII_VALIDITY_VALID){
+        std::ofstream fout(file_name, std::ios::out|std::ios::app);
+        fout<<gaze_point->position_xy[0]<<","<<gaze_point->position_xy[1]<<"\n";
 
-
-
-
-
-
-    geometry_msgs::Point eye_position;
-    eye_position.x = gaze_point->position_xy[0];
-    eye_position.y = gaze_point->position_xy[1];
-    eyetracking_pub.publish(eye_position);
+        geometry_msgs::Point eye_position;
+        eye_position.x = gaze_point->position_xy[0];
+        eye_position.y = gaze_point->position_xy[1];
+        eyetracking_pub.publish(eye_position);
+    }
 }
 
 static void url_receiver(char const *url, void *user_data) {
@@ -51,21 +39,23 @@ static void url_receiver(char const *url, void *user_data) {
         strcpy(buffer, url);
 }
 
-void chatterCallback(const std_msgs::String::ConstPtr& msg)
-{
-    ROS_INFO("I heard: %s", msg->data.c_str());
-}
-
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "talker");
+    time_t rawtime;
+    struct tm * timeinfo;
+    char buffer[80];
+
+    time (&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    strftime(buffer,80,"/home/rute/ros_ws/src/tobii_eyetracking/ros/recorded_data/%Y_%m_%d_%H:%M.txt",timeinfo);
+    file_name =  buffer;
+
+    ros::init(argc, argv, "eye_tracker_node");
     ros::NodeHandle n;
-//    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("eye_tracking_position", 1000);
-   eyetracking_pub = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
-    ros::Subscriber sub = n.subscribe("input", 1000, chatterCallback);
+    eyetracking_pub = n.advertise<geometry_msgs::Point>("eye_tracking_position", 1000);
 
     ros::Rate loop_rate(10);
-    int count = 0;
 
     ROS_INFO("Up and running...");
 
@@ -81,7 +71,7 @@ int main(int argc, char **argv)
     error = tobii_device_create(api, url, &device);
     assert(error == TOBII_ERROR_NO_ERROR);
 
-    error = tobii_gaze_point_subscribe(device, gaze_point_callback, 0);
+    error = tobii_gaze_point_subscribe(device, gaze_point_callback, NULL);
     assert(error == TOBII_ERROR_NO_ERROR);
 
     while (ros::ok())
